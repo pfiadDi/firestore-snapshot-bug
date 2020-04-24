@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    //match /{document=**} {
+      //allow read, write: if true;
+    //}
+
+    //check if field exists
+    function isDefined(field) {
+     return field in request.resource.data
+    }
+
+ 
+
+    // Only use after checking if the field exists
+    function val(field) {
+      return request.resource.data[field];
+    }
+
+
+    function isString(field) {
+        return string(val(field)) == val(field);
+    }
+  
+    function isFloat(field) {
+        return float(val(field)) == val(field);
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return request.auth.uid == resource.data.uid;
+    }
+
+    function isValidAuthUid() {
+      return request.auth.uid == request.resource.data.uid;
+    }
+
+    function isValidLinkedInLink(field) {
+      return isString(field) && val(field).matches("^https:\\/\\/www\\.linkedin\\.com\\/search\\/results\\/people\\/.{1,}|^https:\\/\\/www\\.linkedin\\.com\\/sales\\/search\\/people.{1,}");
+    }
+
+    function isValidStatus(field) {
+      return isString(field) && val(field) in ["Active","Draft","Paused","Ended"];
+    }
+
+    match /campaigns/{campaignId} {
+      allow create: if isAuthenticated() && isValidAuthUid();
+      allow delete: if isOwner();
+      allow list: if isOwner();
+      allow get: if resource.data == null || isOwner();  
+      allow update: if isOwner() &&
+           (!isDefined('name') || isString('name')) &&
+           (!isDefined('searchResults') || isValidLinkedInLink('searchResults') ) &&
+           (!isDefined('invitationMsg') || val('invitationMsg').size() < 301) &&
+           (!isDefined('msg1') || isString('msg1')) &&
+           (!isDefined('msg2') || isString('msg2')) &&
+           (!isDefined('msg3') || isString('msg3')) &&
+           (!isDefined('msg4') || isString('msg4')) &&
+           (!isDefined('msg5') || isString('msg5')) &&
+           (!isDefined('msg1Delay') || val('msg1Delay') >= 0) &&
+           (!isDefined('msg2Delay') || val('msg2Delay') >= 0) &&
+           (!isDefined('msg3Delay') || val('msg3Delay') >= 0) &&
+           (!isDefined('msg4Delay') || val('msg4Delay') >= 0) &&
+           (!isDefined('msg5Delay') || val('msg5Delay') >= 0) &&
+           (!isDefined('status') || isValidStatus('status')) &&
+           (!isDefined('teamId') || isString('teamId'));
+    }
+  }
+}
